@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "project": "my-large-project",
+  "task_prefix": "PRJ",
+  "profile": "default",
+  "timezone": "Asia/Shanghai",
+  "timezone_offset_hours": 8,
+  "owner_open_id": "ou_example_owner",
+  "owner_name": "Project Owner",
+  "space_id": "7000000000000000000",
+  "parent_node_token": "WikiParentNodeToken",
+  "document_id": "OverviewDocObjToken",
+  "document_node_token": "OverviewWikiNodeToken",
+  "document_url": "https://your-tenant.feishu.cn/wiki/OverviewWikiNodeToken",
+  "minor_fixes_task_id": "PRJ-00",
+  "minor_fixes_guid": "00000000-0000-0000-0000-000000000000",
+  "minor_fixes_url": "https://your-tenant.feishu.cn/wiki/MinorFixDocNodeToken",
+  "tasklist_guid": "11111111-1111-1111-1111-111111111111",
+  "tasklist_url": "https://applink.feishu.cn/client/todo/task_list?guid=11111111-1111-1111-1111-111111111111",
+  "base_token": "BaseAppTokenExample",
+  "base_url": "https://your-tenant.feishu.cn/base/BaseAppTokenExample",
+  "table_id": "tblExampleTableId",
+  "grid_view_id": "vewGrid",
+  "kanban_view_id": "vewKanban",
+  "stage_view_id": "vewStage",
+  "priority_view_id": "vewPriority",
+  "gantt_view_id": "vewGantt",
+  "ai_view_id": "vewAiGantt",
+  "sections": {
+    "架构与内核": "sec-guid-arch",
+    "核心算法": "sec-guid-algo",
+    "工程与发布": "sec-guid-eng"
+  },
+  "stages": [
+    "阶段一·架构与基线",
+    "阶段二·核心能力",
+    "阶段三·集成与验收",
+    "日常·滚动维护"
+  ],
+  "document_visualization": {
+    "enabled": true,
+    "kind": "html5-linked-overview",
+    "title": "My Project 项目推进总览",
+    "eyebrow": "MY PROJECT / DEVELOPMENT",
+    "marker": "my-project-overview-v1",
+    "default_group": "stage",
+    "stage_order": [
+      "阶段一·架构与基线",
+      "阶段二·核心能力",
+      "阶段三·集成与验收",
+      "日常·滚动维护"
+    ]
+  },
+  "document_task_sections": {
+    "enabled": true,
+    "active_heading": "待办",
+    "completed_heading": "已完成",
+    "link_prefix": "任务文档：",
+    "completed_default_folded": true
+  },
+  "tasks": []
+}

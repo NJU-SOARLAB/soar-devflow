@@ -1,0 +1,8 @@
+{
+  "profile": "default",
+  "chat_id": "oc_example_group_chat_id",
+  "tasklist_guid": "11111111-1111-1111-1111-111111111111",
+  "state_path": "~/.local/state/soar-devflow/my-project-notify.json",
+  "mode": "agent",
+  "send_as": "bot"
+}

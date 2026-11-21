@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+node_modules/
+site/.vitepress/cache/
+site/.vitepress/dist/
+skills/**/node_modules/
+.DS_Store
+*.log
+.env
+.env.*

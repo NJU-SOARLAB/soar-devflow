@@ -1,0 +1,31 @@
+:root {
+  --vp-c-brand-1: #147d70;
+  --vp-c-brand-2: #11695e;
+  --vp-c-brand-3: #147d70;
+  --vp-c-brand-soft: #147d7018;
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #147d70 10%, #2563eb 90%);
+}
+.dark {
+  --vp-c-brand-1: #5eead4;
+  --vp-c-brand-2: #2dd4bf;
+  --vp-c-brand-3: #147d70;
+  --vp-c-brand-soft: #5eead41f;
+  --vp-home-hero-name-background: linear-gradient(120deg, #5eead4 10%, #60a5fa 90%);
+}
+.vp-doc p, .vp-doc li { line-height: 1.8; }
+.vp-doc table { display: block; max-width: 100%; overflow-x: auto; font-size: 14px; }
+.vp-doc :is(th, td) { min-width: 6em; overflow-wrap: anywhere; vertical-align: top; }
+.vp-doc figure.sd-figure { margin: 24px 0; text-align: center; }
+.vp-doc figure.sd-figure img { display: inline-block; max-width: 100%; border-radius: 10px; border: 1px solid var(--vp-c-divider); cursor: zoom-in; }
+.vp-doc figure.sd-figure figcaption { margin-top: 8px; font-size: 13px; color: var(--vp-c-text-2); }
+.vp-doc .mermaid { margin: 22px 0; padding: 16px; border: 1px solid var(--vp-c-divider); border-radius: 10px; background: var(--vp-c-bg-alt); text-align: center; cursor: zoom-in; }
+.vp-doc .mermaid svg foreignObject :is(p, li) { line-height: inherit; margin: 0; }
+.sd-lightbox { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: color-mix(in srgb, var(--vp-c-bg) 92%, transparent); backdrop-filter: blur(8px); }
+.sd-lightbox-stage { position: absolute; inset: 0; overflow: hidden; }
+.sd-lightbox-content { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.sd-lightbox-bar { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; padding: 4px 8px; border: 1px solid var(--vp-c-divider); border-radius: 10px; background: var(--vp-c-bg); }
+.sd-lightbox-bar :is(button, a) { min-width: 32px; height: 32px; border: 0; background: transparent; color: var(--vp-c-text-1); cursor: pointer; display: grid; place-items: center; text-decoration: none; }
+.sd-lightbox-foot { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 24px; text-align: center; pointer-events: none; }
+.sd-lightbox-caption { margin: 0; font-size: 14px; color: var(--vp-c-text-1); }
+.sd-lightbox-hint { margin: 4px 0 0; font-size: 12px; color: var(--vp-c-text-3); }

@@ -1,0 +1,32 @@
+{
+  "site_dir": "site",
+  "languages": ["zh", "en"],
+  "root_language": "zh",
+  "coverage_file": "coverage.json",
+  "single_source": {
+    "enabled": true,
+    "allowed_prefixes": [
+      "site/",
+      "skills/",
+      "templates/",
+      ".github/",
+      "tests/"
+    ],
+    "allowed_files": [
+      "README.md",
+      "README.en.md",
+      "CONTRIBUTING.md",
+      "AGENTS.md",
+      "CLAUDE.md"
+    ],
+    "check_readme_duplication": true
+  },
+  "quality": {
+    "min_stub_chars": 300,
+    "min_chars": {
+      "zh": 900,
+      "en": 1200
+    },
+    "require_visual_in": ["guide", "reference"]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "site_dir": "docs/site",
+  "languages": ["zh", "en"],
+  "root_language": "zh",
+  "coverage_file": "coverage.json",
+  "single_source": {
+    "enabled": true,
+    "allowed_prefixes": [
+      "docs/site/",
+      ".agents/skills/",
+      ".claude/skills/",
+      ".github/",
+      ".soar-devflow/",
+      "docs/development_management/",
+      "docs/releases/",
+      "docs/validation/"
+    ],
+    "allowed_files": [
+      "README.md",
+      "README.en.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "CHANGELOG.md",
+      "CONTRIBUTING.md",
+      "CODE_OF_CONDUCT.md",
+      "SECURITY.md"
+    ],
+    "check_readme_duplication": true
+  },
+  "quality": {
+    "min_stub_chars": 250,
+    "min_chars": {
+      "zh": 2500,
+      "en": 4000
+    },
+    "require_visual_in": ["guide", "reference"]
+  },
+  "shots": {
+    "manifest_dir": "docs/site/shots",
+    "output_dir": "docs/site/public/shots",
+    "upstream_url": "http://127.0.0.1:5173",
+    "static_dir": "",
+    "routes": {},
+    "theme_storage_key": ""
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "guide/quickstart": {
+    "section": "guide",
+    "title_zh": "快速上手",
+    "title_en": "Quickstart",
+    "translation_revision": 2,
+    "anchors": ["agent-setup", "manual-setup", "verification", "troubleshooting"]
+  },
+  "guide/task-workflow": {
+    "section": "guide",
+    "title_zh": "飞书过程管理",
+    "title_en": "Process Management",
+    "translation_revision": 2,
+    "anchors": ["truth-sources", "daily-loop", "dual-timeline", "acceptance", "notifications"]
+  },
+  "guide/docs-craft": {
+    "section": "guide",
+    "title_zh": "文档站与教程编写",
+    "title_en": "Docs Site & Tutorials",
+    "translation_revision": 2,
+    "anchors": ["taxonomy", "templates", "screenshots", "gates"]
+  },
+  "guide/live-demo": {
+    "section": "guide",
+    "title_zh": "看板与甘特图在线演示",
+    "title_en": "Live Kanban & Gantt Demo",
+    "translation_revision": 2,
+    "anchors": ["playground", "how-to-explore", "how-generated"]
+  },
+  "reference/architecture": {
+    "section": "reference",
+    "title_zh": "整体工作流与设计细节",
+    "title_en": "Workflow & Design Internals",
+    "translation_revision": 2,
+    "anchors": ["overview", "config-separation", "dataflow", "safety", "verification"]
+  },
+  "reference/config-schema": {
+    "section": "reference",
+    "title_zh": "配置文件说明",
+    "title_en": "Configuration Reference",
+    "translation_revision": 2,
+    "anchors": ["tasks-json", "notifications-json", "docs-json", "coverage-json"]
+  },
+  "reference/cli-scripts": {
+    "section": "reference",
+    "title_zh": "脚本与命令行说明",
+    "title_en": "CLI Scripts Reference",
+    "translation_revision": 2,
+    "anchors": ["setup-scripts", "task-scripts", "docs-scripts", "privacy-scan"]
+  }
+}
