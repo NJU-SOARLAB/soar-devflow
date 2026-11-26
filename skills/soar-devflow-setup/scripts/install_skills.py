@@ -11,7 +11,7 @@ SKILLS_SRC = REPO_ROOT / "skills"
 ALL_SKILLS = ("soar-devflow-setup", "soar-devflow-tasks", "soar-devflow-docs")
 
 
-def install_skill(src: Path, dst: Path, mode: str) -> str:
+def install_skill(src: Path, dst: Path, mode: str, relative: bool = False) -> str:
     dst.parent.mkdir(parents=True, exist_ok=True)
     if dst.is_symlink() or dst.exists():
         if dst.is_symlink() or dst.is_file():
@@ -19,7 +19,9 @@ def install_skill(src: Path, dst: Path, mode: str) -> str:
         else:
             shutil.rmtree(dst)
     if mode == "symlink":
-        dst.symlink_to(src.resolve())
+        src_resolved = src.resolve()
+        target = os.path.relpath(src_resolved, dst.parent.resolve()) if relative else str(src_resolved)
+        dst.symlink_to(target)
         return "symlink"
     shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "node_modules"))
     return "copy"
@@ -43,6 +45,7 @@ def main() -> None:
     parser.add_argument("--target", type=Path, default=Path.cwd(), help="Target repo root (workspace) or home dir (global)")
     parser.add_argument("--scope", choices=("workspace", "global"), default="workspace")
     parser.add_argument("--mode", choices=("copy", "symlink"), default="copy", help="Copy files (portable) or symlink to cloned repo")
+    parser.add_argument("--relative", action="store_true", help="With --mode symlink, create relative symlinks (portable across monorepo workspaces)")
     parser.add_argument("--skills", default=",".join(ALL_SKILLS), help="Comma-separated skill names to install")
     parser.add_argument("--no-claude-link", action="store_true", help="Do not create .claude/skills symlinks")
     args = parser.parse_args()
@@ -60,7 +63,7 @@ def main() -> None:
     for name in selected:
         src = SKILLS_SRC / name
         dst = agents_skills / name
-        how = install_skill(src, dst, args.mode)
+        how = install_skill(src, dst, args.mode, relative=args.relative)
         entry = {"skill": name, "path": str(dst), "mode": how}
         if not args.no_claude_link:
             mirror = link_claude_mirror(agents_skills, claude_skills, name)

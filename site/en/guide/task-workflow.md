@@ -1,6 +1,6 @@
 ---
 translationKey: guide/task-workflow
-sourceRevision: 2
+sourceRevision: 3
 ---
 
 # Process Management
@@ -38,7 +38,12 @@ flowchart LR
 
 ## How a Task Runs Day to Day {#daily-loop}
 
-1. **Pick up work**: The agent reads `.soar-devflow/tasks.json`, opens the target task and its task doc to check requirements and real prerequisites, and preserves edits made by teammates or other sessions.
+1. **Register before coding**: Before starting any substantive feature, optimization, cross-module refactor, or bugfix, read the target repo's `.soar-devflow/tasks.json` (in multi-repo workspaces, run inside the target sub-repo or pass `--config`). For standalone deliverables not already tracked remotely, preview with `create_task.py --dry-run` and create the native task, dedicated Wiki doc, and overview mount in one step:
+   ```bash
+   python3 .agents/skills/soar-devflow-tasks/scripts/create_task.py \
+     --title "<Task Title>" --section "<Domain Section>" --due YYYY-MM-DD --dry-run
+   ```
+   Small bug fixes and copy tweaks go into the rolling `<PREFIX>-00` minor-fix doc instead; pure Q&A never spawns tasks.
 2. **Code and record evidence**: Update the task doc at kickoff and delivery (not on every tool call). Prefix commit messages with the task ID (such as `NOV-03: ...`) and leave one structured commit line in the task doc so future sessions can trace changes easily:
    ```text
    Commit: <repo> <branch> <from>..<to> (merged <merge-sha>; version <ver>)

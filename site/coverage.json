@@ -10,7 +10,7 @@
     "section": "guide",
     "title_zh": "飞书过程管理",
     "title_en": "Process Management",
-    "translation_revision": 2,
+    "translation_revision": 3,
     "anchors": ["truth-sources", "daily-loop", "dual-timeline", "acceptance", "notifications"]
   },
   "guide/docs-craft": {
@@ -45,7 +45,7 @@
     "section": "reference",
     "title_zh": "脚本与命令行说明",
     "title_en": "CLI Scripts Reference",
-    "translation_revision": 2,
+    "translation_revision": 3,
     "anchors": ["setup-scripts", "task-scripts", "docs-scripts", "privacy-scan"]
   }
 }

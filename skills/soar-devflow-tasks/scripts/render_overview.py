@@ -17,6 +17,19 @@ DEFAULT_ALLOWED_HOSTS = ("feishu.cn", "larkoffice.com", "larksuite.com")
 DEFAULT_STAGE_COLORS = [
     "#3370ff", "#149287", "#e47c3c", "#8057cf", "#2b8a57", "#c75d7e", "#7a8a9e",
 ]
+TASK_ID_RE = re.compile(
+    r"^(?:\[([^\]]+)\]|([A-Z][A-Z0-9]*-\d+[A-Z]?)(?=$|[\s:：\-—·]))\s*[:：\-—·]?\s*(.*)$"
+)
+
+
+def parse_task_id_and_title(summary: str) -> tuple[str, str]:
+    text = (summary or "").strip()
+    match = TASK_ID_RE.match(text)
+    if not match:
+        return "", text
+    task_id = (match.group(1) or match.group(2) or "").strip()
+    title = (match.group(3) or "").strip() or text
+    return task_id, title
 
 
 def _meta(config: dict) -> tuple[str, str, str]:
@@ -41,12 +54,8 @@ def safe_url(value: str | None, allowed_hosts: tuple[str, ...] = DEFAULT_ALLOWED
 
 def make_data(config: dict, tasks: dict, rows: dict, updates: dict) -> list[dict]:
     allowed_hosts = tuple(config.get("allowed_url_hosts") or DEFAULT_ALLOWED_HOSTS)
-    id_names = {
-        guid: task["summary"].split("]")[0].lstrip("[")
-        if task["summary"].startswith("[")
-        else task["summary"]
-        for guid, task in tasks.items()
-    }
+    parsed_meta = {guid: parse_task_id_and_title(task["summary"]) for guid, task in tasks.items()}
+    id_names = {guid: (pid or title) for guid, (pid, title) in parsed_meta.items()}
     data = []
     for guid, task in tasks.items():
         row = rows[guid]
@@ -54,10 +63,7 @@ def make_data(config: dict, tasks: dict, rows: dict, updates: dict) -> list[dict
         status = (fields.get("执行状态") or ["未开始"])[0]
         if fields.get("任务已完成"):
             status = "已完成"
-        title = task["summary"]
-        identifier = id_names[guid]
-        if title.startswith("[") and "]" in title:
-            title = title.split("]", 1)[1].strip()
+        identifier, title = parsed_meta[guid]
         names = [
             m.get("name") or (config.get("owner_name") if m.get("id") == config.get("owner_open_id") else "")
             for m in task.get("members", [])
@@ -170,18 +176,24 @@ def find_widget(document: dict, title: str, marker: str) -> str | None:
 
 
 def publish(config: dict, tasks: dict, rows: dict, updates: dict, cli, allow_create: bool = False) -> dict:
-    title, marker, _ = _meta(config)
+    title, marker, eyebrow = _meta(config)
+    vis = config.get("document_visualization") or {}
     data = make_data(config, tasks, rows, updates)
     source = json.dumps({
         "tasks": data,
         "base_url": config.get("base_url"),
         "table_id": config.get("table_id"),
+        "kanban_view_id": config.get("kanban_view_id"),
+        "gantt_view_id": config.get("gantt_view_id"),
         "priority_view_id": config.get("priority_view_id"),
         "stage_view_id": config.get("stage_view_id"),
         "ai_view_id": config.get("ai_view_id"),
         "tasklist_url": config.get("tasklist_url"),
+        "title": title,
+        "eyebrow": eyebrow,
         "marker": marker,
-        "stages": (config.get("document_visualization") or {}).get("stage_order") or config.get("stages"),
+        "default_group": vis.get("default_group"),
+        "stages": vis.get("stage_order") or config.get("stages"),
     }, ensure_ascii=False, sort_keys=True).encode("utf-8")
     checksum = hashlib.sha256(source + TEMPLATE.read_bytes() + Path(__file__).read_bytes()).hexdigest()
 

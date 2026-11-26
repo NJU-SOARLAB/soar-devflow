@@ -1,6 +1,6 @@
 ---
 translationKey: reference/cli-scripts
-sourceRevision: 2
+sourceRevision: 3
 ---
 
 # CLI Scripts Reference
@@ -10,7 +10,7 @@ All Python scripts run on the standard library in Python 3.10+ (zero `pip` packa
 ```mermaid
 flowchart LR
   Setup["Setup &amp; Init<br/>install_skills · init_feishu_project · init_docs_site"]
-  Tasks["Daily Process Sync<br/>sync_tasks · render_overview · reconcile_sections · notify_delivery · export_feishu"]
+  Tasks["Daily Process Sync<br/>create_task · sync_tasks · render_overview · reconcile_sections · notify_delivery · export_feishu"]
   Docs["Docs Check &amp; Screenshots<br/>check_docs · capture_shots · readonly_preview"]
   Scan["Pre-Release Scan<br/>privacy_scan.py"]
 
@@ -22,7 +22,7 @@ flowchart LR
 
 - **`skills/soar-devflow-setup/scripts/install_skills.py`**
   Copies or symlinks the 3 skills into `.agents/skills/` (plus `.claude/skills/` symlinks) or `~/.agents/skills/`.
-  - Common flags: `--target PATH`, `--scope workspace|global`, `--mode copy|symlink`, `--no-claude-link`
+  - Common flags: `--target PATH`, `--scope workspace|global`, `--mode copy|symlink`, `--relative` (portable relative symlinks in monorepos), `--no-claude-link`
 - **`skills/soar-devflow-setup/scripts/init_feishu_project.py`**
   Creates a Feishu/Lark tasklist, domain sections, Base table, 5 Kanban/Gantt views, overview doc, and `<PREFIX>-00` minor-fix rolling task, then writes `.soar-devflow/` config files.
   - `--spec PATH`: Load setup parameters from JSON
@@ -34,8 +34,11 @@ flowchart LR
 
 ## Process Management Scripts {#task-scripts}
 
+- **`skills/soar-devflow-tasks/scripts/create_task.py`**
+  One-shot task creation: checks remote tasks for duplicates, assigns the next `<PREFIX>-NN` ID, creates and moves the dedicated task doc into Wiki first so the final URL is stable, creates the native task, mounts the `<task>` block and adjacent link under the active section on the overview page, and atomically updates `task_documents.json`.
+  - Common flags: `--config PATH`, `--title TEXT`, `--section NAME`, `--id ID`, `--start/--due YYYY-MM-DD`, `--user-quote TEXT`, `--dry-run`
 - **`skills/soar-devflow-tasks/scripts/sync_tasks.py`**
-  Syncs native tasks into Base, refreshes the HTML5 board/Gantt widget on the overview page, and moves completed task blocks. Uses a file lock so concurrent runs never create duplicate rows.
+  Syncs native tasks into Base (parsing `[ID]`, `ID:`, and space-delimited prefixes and backfilling missing doc links from `task_documents.json` or native descriptions), refreshes the HTML5 board/Gantt widget on the overview page, and moves completed task blocks. Locks by `tasklist_guid` so concurrent worktree runs never create duplicate rows.
   - `--config PATH`: Path to `tasks.json` (auto-discovered if omitted)
   - `--dry-run`: Read remote state and compute diff without writing
   - `--allow-create-overview`: Insert the HTML5 overview block if not yet present

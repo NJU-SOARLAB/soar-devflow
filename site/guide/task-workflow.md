@@ -1,6 +1,6 @@
 ---
 translationKey: guide/task-workflow
-sourceRevision: 2
+sourceRevision: 3
 ---
 
 # 飞书过程管理
@@ -38,7 +38,12 @@ flowchart LR
 
 ## 平时怎么跑一轮任务？ {#daily-loop}
 
-1. **接手任务**：Agent 先读仓库里的 `.soar-devflow/tasks.json`，按任务 ID 去看对应的飞书任务和任务文档，弄清楚需求和真正的前置条件，不覆盖别人改过的内容。
+1. **动工前先挂单**：凡开始新需求、性能优化、跨模块重构或缺陷修复，先读取目标仓库的 `.soar-devflow/tasks.json`（多子仓工作区须在目标子仓运行或传入 `--config`）。若是独立交付且远端无重复单，先用 `create_task.py --dry-run` 核对自动编号与领域分组，再正式建单并自动创建唯一任务文档、挂载到汇总页：
+   ```bash
+   python3 .agents/skills/soar-devflow-tasks/scripts/create_task.py \
+     --title "<任务标题>" --section "<领域分组>" --due YYYY-MM-DD --dry-run
+   ```
+   若只是顺手修小 bug 或微调文案，直接在 `<前缀>-00` 滚动小修文档追加一行记录即可；纯问答不建单。
 2. **开发与留痕**：通常在开工和做完时各更一次任务文档，中间除非卡住或者需求变了，不写啰嗦的工具调用流水账。提交代码时标题带上任务编号（比如 `NOV-03: ...`），交付时在任务文档留一行固定的提交记录，方便以后反查：
    ```text
    提交：<仓库> <分支> <起>..<止>（合入 <主干合并提交>；版本 <版本>）

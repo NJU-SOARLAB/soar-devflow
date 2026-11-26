@@ -30,6 +30,8 @@ class InitFeishuProjectTests(unittest.TestCase):
 
     def test_mocked_bootstrap_creates_configs_and_views(self):
         calls = []
+        created_task_payloads = []
+        updated_doc_contents = []
         view_counter = [0]
         doc_counter = [0]
 
@@ -55,8 +57,14 @@ class InitFeishuProjectTests(unittest.TestCase):
                 return {"ok": True}
             if cmd == ("docs", "+create"):
                 doc_counter[0] += 1
-                return {"document_id": f"doc-{doc_counter[0]}", "url": f"https://example.feishu.cn/docx/doc-{doc_counter[0]}"}
+                return {"document": {"document_id": f"doc-{doc_counter[0]}", "url": f"https://example.feishu.cn/docx/doc-{doc_counter[0]}"}}
+            if cmd == ("docs", "+fetch"):
+                return {"document": {"content": '<h1 id="h1a">待办</h1><h2 id="h2a">内核</h2><h2 id="h2b">工程</h2><h1 id="h1d">已完成</h1><h2 id="h2c">内核</h2><h2 id="h2d">工程</h2>'}}
+            if cmd == ("docs", "+update"):
+                updated_doc_contents.append(args[args.index("--content") + 1])
+                return {"result": "success"}
             if cmd == ("task", "tasks"):
+                created_task_payloads.append(json.loads(args[args.index("--data") + 1]))
                 return {"task": {"guid": "minor-guid", "url": "https://applink.feishu.cn/client/todo/detail?guid=minor-guid"}}
             if cmd == ("wiki", "+move"):
                 tok = args[args.index("--obj-token") + 1]
@@ -84,6 +92,9 @@ class InitFeishuProjectTests(unittest.TestCase):
             self.assertEqual(tasks_cfg["minor_fixes_task_id"], "ATL-00")
             self.assertEqual(tasks_cfg["document_node_token"], "node-doc-2")
             self.assertEqual(tasks_cfg["document_visualization"]["marker"], "atlas-sim-overview-v1")
+            # Verify minor_task description & overview link both use the post-move /wiki/ URL
+            self.assertIn("https://example.feishu.cn/wiki/node-doc-1", created_task_payloads[0]["description"])
+            self.assertTrue(updated_doc_contents and "https://example.feishu.cn/wiki/node-doc-1" in updated_doc_contents[0])
             notify_cfg = json.loads(Path(res["notifications_config"]).read_text(encoding="utf-8"))
             self.assertEqual(notify_cfg["mode"], "agent")
             self.assertEqual(notify_cfg["chat_id"], "oc_example_chat")

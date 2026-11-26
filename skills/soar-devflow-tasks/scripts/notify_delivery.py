@@ -62,10 +62,23 @@ def cli(config: dict, args: list[str], identity: str = "user", cwd: str | None =
             )
     except subprocess.TimeoutExpired as exc:
         raise CallError("CLI timeout; response unknown", uncertain=True) from exc
-    try:
-        result = json.loads(proc.stdout if proc.returncode == 0 else proc.stderr)
-    except (ValueError, TypeError) as exc:
-        raise CallError("CLI returned no valid response", uncertain=True) from exc
+    candidates = [proc.stdout] if proc.returncode == 0 else [proc.stderr, proc.stdout]
+    result = None
+    for stream in candidates:
+        text = (stream or "").strip()
+        if not text:
+            continue
+        try:
+            parsed = json.loads(text)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(parsed, dict):
+            result = parsed
+            break
+    if result is None:
+        snippet = ((proc.stderr or "") + " " + (proc.stdout or "")).strip()[:200]
+        detail = f": {snippet}" if snippet else ""
+        raise CallError(f"CLI returned no valid response{detail}", uncertain=True)
     if proc.returncode or result.get("ok") is False:
         error = result.get("error", {})
         code = error.get("code")
@@ -268,7 +281,7 @@ def deliver(config: dict, event: dict, persist, sender=send, now: float | None =
 @contextmanager
 def locked(path: Path):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with open(path.parent / "notify.lock", "a", encoding="utf-8") as lock:
+    with open(path.with_name(path.name + ".lock"), "a", encoding="utf-8") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         yield
 

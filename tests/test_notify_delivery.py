@@ -107,6 +107,28 @@ class NotifyDeliveryTests(unittest.TestCase):
             self.assertEqual(n.get_project_task(CONFIG, GUID), child)
             self.assertEqual(api.call_count, 2)
 
+    def test_cli_parses_json_error_from_stdout_on_nonzero_exit(self):
+        fake = subprocess.CompletedProcess(
+            args=["lark-cli"],
+            returncode=1,
+            stdout=json.dumps({"ok": False, "error": {"code": 99991663, "message": "invalid param"}}),
+            stderr="",
+        )
+        with patch.object(n.subprocess, "run", return_value=fake):
+            with self.assertRaises(n.CallError) as ctx:
+                n.cli(CONFIG, ["im", "+messages-send"])
+            self.assertIn("99991663", str(ctx.exception))
+            self.assertFalse(ctx.exception.uncertain)
+
+    def test_distinct_state_files_in_same_dir_do_not_contend_on_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            p1 = Path(directory) / "proj-a.json"
+            p2 = Path(directory) / "proj-b.json"
+            with n.locked(p1):
+                with n.locked(p2):
+                    self.assertTrue((Path(directory) / "proj-a.json.lock").exists())
+                    self.assertTrue((Path(directory) / "proj-b.json.lock").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

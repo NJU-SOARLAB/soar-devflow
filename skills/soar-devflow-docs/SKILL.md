@@ -1,6 +1,6 @@
 ---
 name: soar-devflow-docs
-description: 技术文档站与教程编写工作流：区分上手教程 guide、原理说明 reference 与接口规范 spec，对照源码核实内容，配套自动网页截图标号与提交前文档自动检查。
+description: 技术文档站与教程编写工作流。凡编写或更新 docs/site/ 文档、上手教程 guide、原理说明 reference、接口规范 spec、网页截图或执行文档站构建检查时加载本技能，确保单源维护、对照源码核实与提交前自动门禁通过。
 ---
 
 # SOAR DevFlow — 技术文档站与教程编写

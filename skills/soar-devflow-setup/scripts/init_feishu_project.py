@@ -320,7 +320,7 @@ def bootstrap(spec: dict, cli_fn=run_cli, sync_fn=None) -> dict:
     gantt_view_id = create_view("交付与验收甘特", "gantt", timebar=("计划开始", "计划截止"))
     ai_view_id = create_view("AI 实施窗口甘特", "gantt", timebar=("AI计划开始", "AI计划交付"))
 
-    # 5. Create rolling minor-fix doc + native task
+    # 5. Create rolling minor-fix doc + overview skeleton, move into Wiki FIRST so URLs are final
     minor_id = f"{prefix}-00"
     minor_title = f"[{minor_id}] 小修小补与日常维护滚动记录"
     minor_doc_body = (
@@ -334,45 +334,46 @@ def bootstrap(spec: dict, cli_fn=run_cli, sync_fn=None) -> dict:
         "--doc-format", "xml",
         "--content", minor_doc_body,
     ])
-    minor_doc_id = _extract_token(minor_doc, "document_id", "doc_token", "obj_token")
-    minor_doc_url = _extract_token(minor_doc, "url", "doc_url")
+    minor_doc_id = _extract_token(minor_doc, "document.document_id", "document_id", "doc_token", "obj_token")
+    minor_doc_url = _extract_token(minor_doc, "document.url", "url", "doc_url")
 
-    minor_section_name = sections_list[-1]
-    minor_section_guid = sections_map[minor_section_name]
-    minor_task_data = cli_fn(profile, [
-        "task", "tasks", "create",
-        "--data", json.dumps({
-            "summary": minor_title,
-            "description": f"详情、进度与验收记录见任务文档：{minor_doc_url}",
-            "tasklists": [{"tasklist_guid": tasklist_guid, "section_guid": minor_section_guid}],
-        }, ensure_ascii=False),
-    ])
-    minor_guid = _extract_token(minor_task_data, "task.guid", "guid")
-    minor_task_url = _extract_token(minor_task_data, "task.url", "url") or f"https://applink.feishu.cn/client/todo/detail?guid={minor_guid}"
-
-    # 6. Create overview document skeleton
-    overview_xml = build_overview_xml(project, sections_list, minor_guid, minor_title, minor_doc_url, minor_section_name)
-    overview_doc = cli_fn(profile, [
-        "docs", "+create",
-        "--title", f"{project} 任务汇总与推进总览",
-        "--doc-format", "xml",
-        "--content", overview_xml,
-    ])
-    overview_doc_id = _extract_token(overview_doc, "document_id", "doc_token", "obj_token")
-    overview_doc_url = _extract_token(overview_doc, "url", "doc_url")
-    overview_node_token = ""
-    minor_node_token = ""
-
-    # Optionally move overview doc, Base, and minor-fix doc into Wiki space
     space_id = spec.get("space_id") or ""
     parent_node_token = spec.get("parent_node_token") or ""
+    overview_node_token = ""
+    minor_node_token = ""
+    minor_section_name = sections_list[-1]
+    minor_section_guid = sections_map[minor_section_name]
+
+    def _wiki_url(moved_payload: dict, fallback_url: str, node_tok: str) -> str:
+        direct = _extract_token(moved_payload, "node.url", "url", "wiki_node.url")
+        if direct:
+            return direct
+        if node_tok and fallback_url.startswith("https://"):
+            from urllib.parse import urlparse
+            host = urlparse(fallback_url).netloc
+            if host:
+                return f"https://{host}/wiki/{node_tok}"
+        return fallback_url
+
     if space_id:
+        # Move overview doc & Base first so minor_doc can be nested under overview_node_token
+        # and minor_task receives the final /wiki/... URL in its native description & overview link.
+        overview_skeleton = build_overview_xml(project, sections_list, "", "", "", minor_section_name)
+        overview_doc = cli_fn(profile, [
+            "docs", "+create",
+            "--title", f"{project} 任务汇总与推进总览",
+            "--doc-format", "xml",
+            "--content", overview_skeleton,
+        ])
+        overview_doc_id = _extract_token(overview_doc, "document.document_id", "document_id", "doc_token", "obj_token")
+        overview_doc_url = _extract_token(overview_doc, "document.url", "url", "doc_url")
+
         move_args = ["wiki", "+move", "--obj-type", "docx", "--obj-token", overview_doc_id, "--target-space-id", space_id]
         if parent_node_token:
             move_args += ["--target-parent-token", parent_node_token]
         moved_ov = cli_fn(profile, move_args)
-        overview_node_token = _extract_token(moved_ov, "node_token", "node.node_token")
-        overview_doc_url = _extract_token(moved_ov, "url", "node.url") or overview_doc_url
+        overview_node_token = _extract_token(moved_ov, "node.node_token", "node_token", "wiki_node.node_token")
+        overview_doc_url = _wiki_url(moved_ov, overview_doc_url, overview_node_token)
 
         if base_token:
             b_move = ["wiki", "+move", "--obj-type", "bitable", "--obj-token", base_token, "--target-space-id", space_id]
@@ -384,8 +385,61 @@ def bootstrap(spec: dict, cli_fn=run_cli, sync_fn=None) -> dict:
         if overview_node_token or parent_node_token:
             m_move += ["--target-parent-token", overview_node_token or parent_node_token]
         moved_m = cli_fn(profile, m_move)
-        minor_node_token = _extract_token(moved_m, "node_token", "node.node_token")
-        minor_doc_url = _extract_token(moved_m, "url", "node.url") or minor_doc_url
+        minor_node_token = _extract_token(moved_m, "node.node_token", "node_token", "wiki_node.node_token")
+        minor_doc_url = _wiki_url(moved_m, minor_doc_url, minor_node_token)
+
+    # 6. Create rolling minor-fix native task with final doc URL
+    minor_task_data = cli_fn(profile, [
+        "task", "tasks", "create",
+        "--data", json.dumps({
+            "summary": minor_title,
+            "description": f"详情、进度与验收记录见任务文档：{minor_doc_url}",
+            "tasklists": [{"tasklist_guid": tasklist_guid, "section_guid": minor_section_guid}],
+        }, ensure_ascii=False),
+    ])
+    minor_guid = _extract_token(minor_task_data, "task.guid", "guid")
+    minor_task_url = _extract_token(minor_task_data, "task.url", "url") or f"https://applink.feishu.cn/client/todo/detail?guid={minor_guid}"
+
+    if space_id:
+        # Mount minor-fix native task & final Wiki link under 待办 -> minor_section_name
+        ov_fetched = cli_fn(profile, ["docs", "+fetch", "--doc", overview_doc_id, "--detail", "full"]).get("document") or {}
+        if ov_fetched.get("content"):
+            import xml.etree.ElementTree as ET
+            blocks = list(ET.fromstring("<root>" + ov_fetched["content"] + "</root>"))
+            in_active = False
+            h2_id = ""
+            for block in blocks:
+                text = "".join(block.itertext()).strip()
+                if block.tag == "h1":
+                    in_active = text == "待办"
+                elif block.tag == "h2" and in_active and text == minor_section_name:
+                    h2_id = block.attrib.get("id", "")
+                    break
+            if h2_id:
+                def _esc(s: str) -> str:
+                    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+                mount_xml = (
+                    f'<task task-id="{_esc(minor_guid)}"/>\n'
+                    f'<p>任务文档：<a href="{_esc(minor_doc_url)}">{_esc(minor_title)}</a></p>'
+                )
+                cli_fn(profile, [
+                    "docs", "+update",
+                    "--doc", overview_doc_id,
+                    "--doc-format", "xml",
+                    "--command", "block_insert_after",
+                    "--block-id", h2_id,
+                    "--content", mount_xml,
+                ])
+    else:
+        overview_xml = build_overview_xml(project, sections_list, minor_guid, minor_title, minor_doc_url, minor_section_name)
+        overview_doc = cli_fn(profile, [
+            "docs", "+create",
+            "--title", f"{project} 任务汇总与推进总览",
+            "--doc-format", "xml",
+            "--content", overview_xml,
+        ])
+        overview_doc_id = _extract_token(overview_doc, "document.document_id", "document_id", "doc_token", "obj_token")
+        overview_doc_url = _extract_token(overview_doc, "document.url", "url", "doc_url")
 
     # 7. Write local configuration files
     today = datetime.now(timezone(timedelta(hours=float(spec["timezone_offset_hours"])))).strftime("%Y-%m-%d")

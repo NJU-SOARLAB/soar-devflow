@@ -78,6 +78,20 @@ class RenderOverviewTests(unittest.TestCase):
         self.assertEqual(item["end"], "2026-11-24")
         self.assertEqual(item["human_hours"], 1)
 
+    def test_non_bracketed_task_ids_are_split_cleanly_without_duplicating_title(self):
+        tasks = {
+            "a": {"summary": "PRJ-52：前端性能优化", "url": "https://applink.feishu.cn/t1", "members": [], "dependencies": []},
+            "b": {"summary": "PRJ-50 Space title", "url": "https://applink.feishu.cn/t2", "members": [], "dependencies": [{"type": "prev", "task_guid": "a"}]},
+            "c": {"summary": "Plain unnumbered item", "url": "https://applink.feishu.cn/t3", "members": [], "dependencies": []},
+        }
+        rows = {k: {"record_id": f"r{k}", "执行状态": ["未开始"]} for k in tasks}
+        updates = {f"r{k}": {"任务已完成": False, "领域分类": "前端"} for k in tasks}
+        by_title = {item["title"]: item for item in views.make_data({}, tasks, rows, updates)}
+        self.assertEqual(by_title["前端性能优化"]["id"], "PRJ-52")
+        self.assertEqual(by_title["Space title"]["id"], "PRJ-50")
+        self.assertEqual(by_title["Space title"]["deps"], ["PRJ-52"])
+        self.assertEqual(by_title["Plain unnumbered item"]["id"], "")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -15,11 +15,82 @@ import re
 import subprocess
 import sys
 import tempfile
+from urllib.parse import urlparse
 
 DEFAULT_CONFIG_CANDIDATES = (
     ".soar-devflow/tasks.json",
     "docs/development_management/registry.json",
 )
+DEFAULT_DOC_HOSTS = ("feishu.cn", "larkoffice.com", "larksuite.com")
+TASK_ID_RE = re.compile(
+    r"^(?:\[([^\]]+)\]|([A-Z][A-Z0-9]*-\d+[A-Z]?)(?=$|[\s:：\-—·]))\s*[:：\-—·]?\s*(.*)$"
+)
+
+
+def parse_task_id_and_title(summary: str) -> tuple[str, str]:
+    text = (summary or "").strip()
+    match = TASK_ID_RE.match(text)
+    if not match:
+        return "", text
+    task_id = (match.group(1) or match.group(2) or "").strip()
+    title = (match.group(3) or "").strip() or text
+    return task_id, title
+
+
+def extract_doc_url(text: str | None, allowed_hosts: tuple[str, ...] = DEFAULT_DOC_HOSTS) -> str:
+    if not text:
+        return ""
+    for match in re.finditer(r"https://[^\s)\]>\"']+", text):
+        url = match.group(0).rstrip(".,;。；")
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        if (
+            parsed.scheme == "https"
+            and host
+            and any(host == d or host.endswith("." + d) for d in allowed_hosts)
+            and parsed.path.startswith(("/wiki/", "/docx/", "/docs/"))
+        ):
+            return url
+    return ""
+
+
+def load_task_documents(config_path: Path | None) -> dict[str, dict]:
+    if config_path is None:
+        return {}
+    docs_path = config_path.parent / "task_documents.json"
+    if not docs_path.is_file():
+        return {}
+    try:
+        data = json.loads(docs_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def resolve_doc_url(
+    task: dict,
+    *,
+    seed: dict | None = None,
+    task_docs: dict[str, dict] | None = None,
+    allowed_hosts: tuple[str, ...] = DEFAULT_DOC_HOSTS,
+) -> str:
+    guid = task.get("guid", "")
+    doc_entry = (task_docs or {}).get(guid) or {}
+    for candidate in (
+        doc_entry.get("url"),
+        (seed or {}).get("doc_url"),
+        extract_doc_url(task.get("description"), allowed_hosts),
+    ):
+        url = extract_doc_url(candidate, allowed_hosts) if candidate else ""
+        if url:
+            return url
+    return ""
+
+
+def lock_path_for(config: dict, config_path: Path) -> Path:
+    lock_seed = config.get("tasklist_guid") or str(config_path.resolve())
+    key = hashlib.sha256(str(lock_seed).encode("utf-8")).hexdigest()[:12]
+    return Path(tempfile.gettempdir()) / f"soar-devflow-sync-{os.getuid()}-{key}.lock"
 
 
 def discover_config(explicit: Path | None) -> Path:
@@ -71,11 +142,12 @@ def cli(config: dict, args: list[str], cwd: str | None = None) -> dict:
     return data
 
 
-def paged_tasks(config: dict, resource: str, params: dict) -> list[dict]:
+def paged_tasks(config: dict, resource: str, params: dict, cli_fn=None) -> list[dict]:
+    run_cli = cli_fn or cli
     items, seen = [], set()
     while True:
         verb = "tasks" if resource == "tasklists" else "list"
-        data = cli(config, ["task", resource, verb, "--params", json.dumps({**params, "page_size": 100})])
+        data = run_cli(config, ["task", resource, verb, "--params", json.dumps({**params, "page_size": 100})])
         items.extend(data.get("items", []))
         if not data.get("has_more"):
             return items
@@ -86,11 +158,12 @@ def paged_tasks(config: dict, resource: str, params: dict) -> list[dict]:
         params = {**params, "page_token": token}
 
 
-def read_sections(config: dict) -> dict[str, str]:
+def read_sections(config: dict, cli_fn=None) -> dict[str, str]:
+    run_cli = cli_fn or cli
     sections, seen = {}, set()
     params = {"resource_type": "tasklist", "resource_id": config["tasklist_guid"], "page_size": 100}
     while True:
-        data = cli(config, ["task", "sections", "list", "--params", json.dumps(params)])
+        data = run_cli(config, ["task", "sections", "list", "--params", json.dumps(params)])
         for section in data.get("items", []):
             sections[section["guid"]] = section.get("name") or "未分类"
         if not data.get("has_more"):
@@ -204,9 +277,11 @@ def mirror_fields(
     *,
     config: dict | None = None,
     seed_by_guid: dict | None = None,
+    task_docs: dict[str, dict] | None = None,
 ) -> dict:
     cfg = config or {}
     tz = tz_for(cfg)
+    allowed_hosts = tuple(cfg.get("allowed_url_hosts") or DEFAULT_DOC_HOSTS)
     done = int(task.get("completed_at") or 0) > 0
     assignees = [
         {"id": m["id"]}
@@ -241,8 +316,13 @@ def mirror_fields(
     fields["父任务"] = [{"id": record_ids[parent]}] if parent else []
     fields["层级"] = ["子任务" if parent else "主任务"]
 
-    if seed_by_guid and task["guid"] in seed_by_guid:
-        seed = seed_by_guid[task["guid"]]
+    seed = (seed_by_guid or {}).get(task["guid"])
+    if not current.get("飞书文档"):
+        doc_url = resolve_doc_url(task, seed=seed, task_docs=task_docs, allowed_hosts=allowed_hosts)
+        if doc_url:
+            fields["飞书文档"] = doc_url
+
+    if seed:
         tz_suffix = now[-6:] if len(now) >= 6 and now[-6] in ("+", "-") else "+08:00"
         if not current.get("优先级") and seed.get("priority"):
             fields["优先级"] = [seed["priority"]]
@@ -256,8 +336,6 @@ def mirror_fields(
             fields["人工验收估算小时"] = seed["human_hours"]
         if not current.get("验收与等待说明") and seed.get("accept"):
             fields["验收与等待说明"] = seed["accept"]
-        if not current.get("飞书文档") and seed.get("doc_url"):
-            fields["飞书文档"] = seed["doc_url"]
         if not current.get("AI计划开始") and seed.get("start"):
             fields["AI计划开始"] = f"{seed['start']}T09:00:00{tz_suffix}"
         if not current.get("AI计划交付") and seed.get("due"):
@@ -270,6 +348,7 @@ def sync(
     dry_run: bool = False,
     allow_create_overview: bool = False,
     seed_process_fields: bool = False,
+    task_docs: dict[str, dict] | None = None,
 ) -> dict:
     tasks = read_tasks(config)
     with tempfile.TemporaryDirectory(prefix="soar-devflow-sync-") as directory:
@@ -277,6 +356,7 @@ def sync(
     missing = [task for guid, task in tasks.items() if guid not in rows]
     orphaned = [guid for guid in rows if guid not in tasks]
     seed_by_guid = {t["guid"]: t for t in config.get("tasks", []) if t.get("guid")}
+    allowed_hosts = tuple(config.get("allowed_url_hosts") or DEFAULT_DOC_HOSTS)
 
     tz = tz_for(config)
     now = datetime.now(tz).isoformat(timespec="seconds")
@@ -288,14 +368,15 @@ def sync(
             for start in range(0, len(missing), 200):
                 payload = []
                 for task in missing[start:start + 200]:
-                    match = re.match(r"\[([^\]]+)\]", task["summary"])
+                    parsed_id, _ = parse_task_id_and_title(task["summary"])
                     seed = seed_by_guid.get(task["guid"], {})
+                    doc_url = resolve_doc_url(task, seed=seed, task_docs=task_docs, allowed_hosts=allowed_hosts)
                     row_payload = {
                         "任务": task["summary"],
                         "Task GUID": task["guid"],
                         "领域分类": task.get("_category", "未分类"),
                         "任务链接": task["url"],
-                        "编号": match[1] if match else "待编号",
+                        "编号": parsed_id or "待编号",
                         "执行状态": ["未开始"],
                         "交付与验收": seed.get("acceptance") or task.get("description", ""),
                         "日期依据": "从原生任务发现；开发与验收估算在 Base 维护",
@@ -312,8 +393,8 @@ def sync(
                         row_payload["人工验收估算小时"] = seed["human_hours"]
                     if seed.get("accept"):
                         row_payload["验收与等待说明"] = seed["accept"]
-                    if seed.get("doc_url"):
-                        row_payload["飞书文档"] = seed["doc_url"]
+                    if doc_url:
+                        row_payload["飞书文档"] = doc_url
                     if seed.get("start"):
                         row_payload["AI计划开始"] = f"{seed['start']}T09:00:00{tz_suffix}"
                     if seed.get("due"):
@@ -342,6 +423,7 @@ def sync(
             now,
             config=config,
             seed_by_guid=seed_by_guid if seed_process_fields else None,
+            task_docs=task_docs,
         )
         for guid, task in tasks.items()
     }
@@ -386,8 +468,8 @@ def main() -> None:
 
     config_path = discover_config(args.config)
     config = json.loads(config_path.read_text(encoding="utf-8"))
-    key = hashlib.sha1(str(config_path).encode("utf-8")).hexdigest()[:12]
-    lock_path = Path(tempfile.gettempdir()) / f"soar-devflow-sync-{os.getuid()}-{key}.lock"
+    task_docs = load_task_documents(config_path)
+    lock_path = lock_path_for(config, config_path)
     fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -396,6 +478,7 @@ def main() -> None:
             dry_run=args.dry_run,
             allow_create_overview=args.allow_create_overview,
             seed_process_fields=args.seed_process_fields,
+            task_docs=task_docs,
         )
         print(json.dumps(result, ensure_ascii=False))
     finally:

@@ -99,6 +99,37 @@ class SyncTasksTests(unittest.TestCase):
         self.assertEqual(fields["AI开发估算小时"], 1.5)
         self.assertEqual(fields["AI计划开始"], "2026-11-22T09:00:00+08:00")
 
+    def test_parse_task_id_and_title_handles_bracket_and_plain_prefixes(self):
+        self.assertEqual(sync.parse_task_id_and_title("[PRJ-14] Bracketed"), ("PRJ-14", "Bracketed"))
+        self.assertEqual(sync.parse_task_id_and_title("PRJ-52：Fullwidth colon"), ("PRJ-52", "Fullwidth colon"))
+        self.assertEqual(sync.parse_task_id_and_title("PRJ-39: ASCII colon"), ("PRJ-39", "ASCII colon"))
+        self.assertEqual(sync.parse_task_id_and_title("PRJ-50 Space separated"), ("PRJ-50", "Space separated"))
+        self.assertEqual(sync.parse_task_id_and_title("PRJ-05A - Subtask title"), ("PRJ-05A", "Subtask title"))
+        self.assertEqual(sync.parse_task_id_and_title("Unnumbered task"), ("", "Unnumbered task"))
+
+    def test_doc_url_backfilled_from_task_documents_or_description_without_overwriting(self):
+        task = self.task(description="详情见任务文档：https://example.feishu.cn/wiki/fromDesc")
+        fields_desc = sync.mirror_fields(task, {}, {"one": "rec1"}, "2026-11-22T10:00:00+08:00")
+        self.assertEqual(fields_desc["飞书文档"], "https://example.feishu.cn/wiki/fromDesc")
+        fields_map = sync.mirror_fields(
+            task, {}, {"one": "rec1"}, "2026-11-22T10:00:00+08:00",
+            task_docs={"one": {"url": "https://example.feishu.cn/wiki/fromMap"}},
+        )
+        self.assertEqual(fields_map["飞书文档"], "https://example.feishu.cn/wiki/fromMap")
+        fields_existing = sync.mirror_fields(
+            task, {"飞书文档": "https://example.feishu.cn/wiki/manual"}, {"one": "rec1"}, "2026-11-22T10:00:00+08:00",
+            task_docs={"one": {"url": "https://example.feishu.cn/wiki/fromMap"}},
+        )
+        self.assertNotIn("飞书文档", fields_existing)
+
+    def test_lock_path_scopes_by_tasklist_guid_across_worktrees(self):
+        cfg = {"tasklist_guid": "shared-list-guid"}
+        a = sync.lock_path_for(cfg, Path("/tmp/worktree-a/.soar-devflow/tasks.json"))
+        b = sync.lock_path_for(cfg, Path("/tmp/worktree-b/.soar-devflow/tasks.json"))
+        c = sync.lock_path_for({"tasklist_guid": "other-list-guid"}, Path("/tmp/worktree-a/.soar-devflow/tasks.json"))
+        self.assertEqual(a, b)
+        self.assertNotEqual(a, c)
+
 
 if __name__ == "__main__":
     unittest.main()

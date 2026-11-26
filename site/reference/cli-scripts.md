@@ -1,6 +1,6 @@
 ---
 translationKey: reference/cli-scripts
-sourceRevision: 2
+sourceRevision: 3
 ---
 
 # 脚本与命令行说明
@@ -10,7 +10,7 @@ sourceRevision: 2
 ```mermaid
 flowchart LR
   Setup["安装与初始化<br/>install_skills · init_feishu_project · init_docs_site"]
-  Tasks["日常过程管理<br/>sync_tasks · render_overview · reconcile_sections · notify_delivery · export_feishu"]
+  Tasks["日常过程管理<br/>create_task · sync_tasks · render_overview · reconcile_sections · notify_delivery · export_feishu"]
   Docs["文档检查与截图<br/>check_docs · capture_shots · readonly_preview"]
   Scan["开源前检查<br/>privacy_scan.py"]
 
@@ -22,7 +22,7 @@ flowchart LR
 
 - **`skills/soar-devflow-setup/scripts/install_skills.py`**
   把 3 个 Skill 装进目标仓库（`.agents/skills/` + `.claude/skills/` 软链）或本机全局目录（`~/.agents/skills/`）。
-  - 常用参数：`--target PATH`、`--scope workspace|global`、`--mode copy|symlink`、`--no-claude-link`
+  - 常用参数：`--target PATH`、`--scope workspace|global`、`--mode copy|symlink`、`--relative`（工作区相对软链）、`--no-claude-link`
 - **`skills/soar-devflow-setup/scripts/init_feishu_project.py`**
   一键在飞书建好任务清单、领域分组、多维表格、5 个看板/甘特视图、汇总页骨架和 `<前缀>-00` 小修滚动任务，并在本地写出 `.soar-devflow/` 配置文件。
   - `--spec PATH`：从 JSON 文件读取初始化参数
@@ -34,8 +34,11 @@ flowchart LR
 
 ## 过程管理脚本 {#task-scripts}
 
+- **`skills/soar-devflow-tasks/scripts/create_task.py`**
+  一键建单：检查远端任务去重并自动分配下一个 `<前缀>-NN` 编号，创建唯一任务文档并先移入知识库拿到最终 Wiki 链接，再创建原生任务、在汇总页对应分组下挂载原生任务块与文档链接，并原子更新 `task_documents.json`。
+  - 常用参数：`--config PATH`、`--title TEXT`、`--section NAME`、`--id ID`、`--start/--due YYYY-MM-DD`、`--user-quote TEXT`、`--dry-run`
 - **`skills/soar-devflow-tasks/scripts/sync_tasks.py`**
-  把飞书原生任务同步到多维表格，同时更新汇总页顶部的 HTML5 看板/甘特图和下方的待办/已完成分区。自带文件锁，不怕多个终端同时跑产生重复行。
+  把飞书原生任务同步到多维表格（自动兼容 `[ID]`、`ID：`、`ID ` 等前缀并按 `task_documents.json`/任务描述补齐空文档链接），同时更新汇总页顶部的 HTML5 看板/甘特图和下方的待办/已完成分区。按 `tasklist_guid` 加文件锁，多 worktree 并发跑也不会产生重复行。
   - `--config PATH`：指定配置文件（不传则自动往上找 `.soar-devflow/tasks.json`）
   - `--dry-run`：只读远端数据并算差异，不改表格和文档
   - `--allow-create-overview`：汇总页里还没有看板块时允许首次插入

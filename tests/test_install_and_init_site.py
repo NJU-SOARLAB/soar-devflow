@@ -27,6 +27,19 @@ class SetupToolsTests(unittest.TestCase):
                 self.assertTrue(claude_link.is_symlink())
                 self.assertTrue((claude_link / "SKILL.md").is_file())
 
+    def test_install_skills_relative_symlink_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proc = subprocess.run(
+                [sys.executable, str(INSTALL), "--target", tmp, "--scope", "workspace", "--mode", "symlink", "--relative"],
+                check=True, capture_output=True, text=True,
+            )
+            payload = json.loads(proc.stdout)
+            self.assertEqual(len(payload["installed"]), 3)
+            link = Path(tmp) / ".agents/skills/soar-devflow-tasks"
+            self.assertTrue(link.is_symlink())
+            self.assertFalse(Path(link.readlink()).is_absolute())
+            self.assertTrue((link / "SKILL.md").is_file())
+
     def test_init_docs_site_passes_check_docs_gate_immediately(self):
         with tempfile.TemporaryDirectory() as tmp:
             proc = subprocess.run(
