@@ -120,7 +120,20 @@ def update_task_documents_file(docs_path: Path, guid: str, entry: dict) -> None:
         data = json.loads(docs_path.read_text(encoding="utf-8")) if docs_path.is_file() else {}
         if not isinstance(data, dict):
             raise RuntimeError(f"Expected JSON object in {docs_path}")
-        data[guid] = entry
+        if isinstance(data.get("tasks"), dict) and ("version" in data or "date" in data):
+            data["tasks"][guid] = {
+                "task_id": entry.get("id", ""),
+                "id": entry.get("id", ""),
+                "title": entry.get("title", ""),
+                "document_id": entry.get("document_id", ""),
+                "node_token": entry.get("node_token", ""),
+                "document_url": entry.get("url", ""),
+                "url": entry.get("url", ""),
+                "prepared": True,
+                "linked": True,
+            }
+        else:
+            data[guid] = entry
         fd, tmp = tempfile.mkstemp(dir=docs_path.parent, prefix=".task-docs-", suffix=".json")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as out:
@@ -171,12 +184,20 @@ def create_task(
     section_guid = sections_by_name[section]
 
     docs_path = (config_path.parent / "task_documents.json") if config_path else None
-    local_docs = json.loads(docs_path.read_text(encoding="utf-8")) if (docs_path and docs_path.is_file()) else {}
+    local_docs_raw = json.loads(docs_path.read_text(encoding="utf-8")) if (docs_path and docs_path.is_file()) else {}
+    local_docs = (
+        local_docs_raw["tasks"]
+        if isinstance(local_docs_raw, dict)
+        and isinstance(local_docs_raw.get("tasks"), dict)
+        and ("version" in local_docs_raw or "date" in local_docs_raw)
+        else local_docs_raw
+    )
 
     existing_summaries = [item.get("summary", "") for item in remote_items]
     existing_ids = [parse_task_id_and_title(s)[0] for s in existing_summaries]
     existing_ids.extend(
-        str(entry.get("id", "")) for entry in (local_docs.values() if isinstance(local_docs, dict) else [])
+        str(entry.get("id") or entry.get("task_id") or "")
+        for entry in (local_docs.values() if isinstance(local_docs, dict) else [])
         if isinstance(entry, dict)
     )
     existing_ids = [i for i in existing_ids if i]
@@ -306,9 +327,10 @@ def create_task(
             if target_key not in headings:
                 raise RuntimeError(f"Overview doc missing active section heading: {section}")
             _, link_prefix = section_settings(config)
+            link_label = resolved_id or summary
             mount_xml = (
                 f'<task task-id="{escape(task_guid, quote=True)}"/>\n'
-                f'<p>{escape(link_prefix)}<a href="{escape(doc_url, quote=True)}">{escape(summary)}</a></p>'
+                f'<p>{escape(link_prefix)}<a href="{escape(doc_url, quote=True)}">{escape(link_label)}</a></p>'
             )
             checked_update(config, cli_fn, [
                 "--doc-format", "xml",

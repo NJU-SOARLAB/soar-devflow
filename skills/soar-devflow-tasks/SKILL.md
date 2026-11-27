@@ -37,12 +37,12 @@ description: 大项目飞书过程管理工作流。凡在本项目开始新需�
 ## 日常执行规程
 
 1. **定位与开工。** 先读取目标仓库 `.soar-devflow/tasks.json`（或兼容路径 `docs/development_management/registry.json`）定位资源坐标。已知任务 GUID 时直接读取目标任务及主文档；未知时先检索去重并核对清单归属。只核实实际必需的前置产物；保留其他会话或人工修改，绝不用本地静态快照覆盖远端最新状态。
-2. **按范围记账与一键建单。** 跨模块、多步骤、架构调整、性能优化或需人工/实物验收的独立交付才新建主/子任务；子任务只按可独立交付验收拆分。新建任务优先使用配套建单脚本（先 `--dry-run` 核对编号与分组），自动完成去重检查、自动递增编号、创建并归档唯一任务文档、创建原生任务、挂载汇总页任务块并更新 `task_documents.json`：
+2. **按范围记账与强制使用建单脚本。** 跨模块、多步骤、架构调整、性能优化或需人工/实物验收的独立交付才新建主/子任务；子任务只按可独立交付验收拆分。新建任何主任务或子任务**必须**调用配套建单脚本（子任务加 `--parent-guid <父任务GUID>`，先 `--dry-run` 核对编号与分组），**禁止**手调 `lark-cli task tasks create` / `task subtasks create` 绕过脚本——否则任务会漏挂在汇总页“待办”分区与 `task_documents.json` 中：
    ```bash
    python3 <skills_dir>/soar-devflow-tasks/scripts/create_task.py \
      --title "<任务标题>" --section "<领域分组>" --due YYYY-MM-DD --dry-run
    ```
-   一般小 bug、文案/参数微调只在项目配置中指定的滚动小修任务（`minor_fixes_task_id`，如 `PRJ-00`）的唯一文档追加一行「日期 / 问题 / 提交 / 验证」，不零碎建单。纯问答与规则小修不建单。
+   脚本自动完成去重检查、自动递增编号、创建并归档唯一任务文档、创建原生任务、挂载汇总页“待办”分区并原子更新 `task_documents.json`（除测试外**不要**传 `--skip-overview-mount`）。一般小 bug、文案/参数微调只在项目配置中指定的滚动小修任务（`minor_fixes_task_id`，如 `PRJ-00`）的唯一文档追加一行「日期 / 问题 / 提交 / 验证」，不零碎建单。纯问答与规则小修不建单。
 3. **集中更新。** 通常开工与交付各更新一次；中途仅在阻塞、范围变化或关键阶段结论出现时更新。任务主文档保留：目标与范围、用户原话（带日期原样引用，子任务注明摘自父需求）、必要验收标准、当前进度、真实证据与局限；不写工具调用流水账。
 4. **交付、留痕与真实验收。** 每次交付在任务主文档写入固定格式的一行提交记录，并将同一行写入 Base“证据链接”，便于后续会话与 `git log --grep <编号>` 反查：
    ```text
@@ -56,7 +56,7 @@ description: 大项目飞书过程管理工作流。凡在本项目开始新需�
    ```bash
    python3 <skills_dir>/soar-devflow-tasks/scripts/sync_tasks.py
    ```
-   返回 `next_run_updates_links: true` 时等待新记录在 Base 可见后补跑一次，不重复创建。同步只镜像结构化事实、更新汇总页 HTML5 总览与待办/已完成分区，不代替验收、不关闭任务。每项可审阅交付由当前 Agent 主动调用 [交付通知](references/notifications.md)。
+   返回 `next_run_updates_links: true` 时等待新记录在 Base 可见后补跑一次，不重复创建。同步只镜像结构化事实、更新汇总页 HTML5 总览、将漏挂在汇总页的原生主/子任务（含人工新建任务）自动补挂至对应领域“待办/已完成”分区并维护归位，不代替验收、不关闭任务；同步后须确认 `task_sections.unmounted_tasks` 为空。每项可审阅交付由当前 Agent 主动调用 [交付通知](references/notifications.md)。
 
 ## 关键边界
 

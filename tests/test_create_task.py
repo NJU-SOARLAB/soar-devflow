@@ -133,6 +133,16 @@ class CreateTaskTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "already exists"):
             ct.create_task(cfg, title="X", section="内核", task_id="PRJ-01", dry_run=True, cli_fn=fake_cli)
 
+    def test_nested_task_documents_preserves_wrapper_and_detects_task_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            td = Path(tmp) / "task_documents.json"
+            td.write_text(json.dumps({"version": 1, "tasks": {"g0": {"task_id": "PRJ-08"}}}), encoding="utf-8")
+            ct.update_task_documents_file(td, "g1", {"id": "PRJ-09", "title": "New", "url": "https://example.feishu.cn/wiki/n"})
+            saved = json.loads(td.read_text(encoding="utf-8"))
+            self.assertEqual(saved["version"], 1)
+            self.assertEqual(saved["tasks"]["g1"]["task_id"], "PRJ-09")
+            self.assertEqual(saved["tasks"]["g1"]["document_url"], "https://example.feishu.cn/wiki/n")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -51,6 +51,61 @@ class ReconcileSectionsTests(unittest.TestCase):
         self.assertEqual(result["status"], "unchanged")
         self.assertEqual(len(calls), 1)
 
+    def test_auto_mounts_unmounted_tasks_into_active_and_completed_sections(self):
+        state = {"content": make_doc(active=True)["content"]}
+
+        def cli(config, args):
+            if args[:2] == ["docs", "+fetch"]:
+                return {"document": dict(state)}
+            if args[:2] == ["docs", "+update"]:
+                target_id = args[args.index("--block-id") + 1]
+                inserted = args[args.index("--content") + 1]
+                counter = [0]
+                out_lines = []
+                for line in inserted.splitlines():
+                    counter[0] += 1
+                    if line.startswith("<task "):
+                        out_lines.append(line.replace("<task ", f'<task id="mt_{target_id}_{counter[0]}" '))
+                    elif line.startswith("<p>"):
+                        out_lines.append(line.replace("<p>", f'<p id="mp_{target_id}_{counter[0]}">'))
+                    else:
+                        out_lines.append(line)
+                marker = f'<h2 id="{target_id}">算法</h2>'
+                state["content"] = state["content"].replace(marker, marker + "".join(out_lines))
+                return {"result": "success"}
+            raise AssertionError(f"Unexpected call: {args}")
+
+        tasks = {
+            "guid": {"summary": "[PRJ-1] Existing", "completed_at": "0", "_category": "算法"},
+            "g_open": {"summary": "[PRJ-2] New Open", "completed_at": "0", "_category": "算法", "url": "https://applink.feishu.cn/client/todo/detail?guid=g_open"},
+            "g_done": {"summary": "[PRJ-3] New Done", "completed_at": "999", "_category": "算法", "url": "https://applink.feishu.cn/client/todo/detail?guid=g_done"},
+        }
+        res = reconcile(
+            {"document_id": "doc"},
+            tasks,
+            cli,
+            doc_urls={"g_open": "https://example.feishu.cn/wiki/open_doc"},
+        )
+        self.assertEqual(res["status"], "updated")
+        self.assertEqual(res["mounted_tasks"], 2)
+        self.assertEqual(res["unmounted_tasks"], [])
+        self.assertEqual(res["mounted_without_doc"], ["g_done"])
+        _, entries, _ = parse(state)
+        self.assertEqual(entries["g_open"]["key"], (False, "算法"))
+        self.assertEqual(entries["g_open"]["url"], "https://example.feishu.cn/wiki/open_doc")
+        self.assertEqual(entries["g_done"]["key"], (True, "算法"))
+
+    def test_tolerates_group_heading_nested_in_preceding_paragraph(self):
+        doc = {
+            "content": '<p id="intro">说明<h1 id="a">待办</h1></p><h2 id="ac">算法</h2>'
+            '<task id="t" task-id="guid"/><p id="p">任务文档：<a href="https://example.feishu.cn/wiki/doc">PRJ-1</a></p>'
+            '<h1 id="d">已完成</h1><h2 id="dc">算法</h2>'
+        }
+        headings, entries, groups = parse(doc)
+        self.assertEqual(set(groups), {False, True})
+        self.assertIn((False, "算法"), headings)
+        self.assertEqual(entries["guid"]["key"], (False, "算法"))
+
 
 if __name__ == "__main__":
     unittest.main()

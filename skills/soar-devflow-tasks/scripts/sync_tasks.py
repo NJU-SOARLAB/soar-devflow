@@ -64,7 +64,11 @@ def load_task_documents(config_path: Path | None) -> dict[str, dict]:
         data = json.loads(docs_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    if isinstance(data.get("tasks"), dict) and ("version" in data or "date" in data):
+        return data["tasks"]
+    return data
 
 
 def resolve_doc_url(
@@ -78,6 +82,7 @@ def resolve_doc_url(
     doc_entry = (task_docs or {}).get(guid) or {}
     for candidate in (
         doc_entry.get("url"),
+        doc_entry.get("document_url"),
         (seed or {}).get("doc_url"),
         extract_doc_url(task.get("description"), allowed_hosts),
     ):
@@ -454,7 +459,17 @@ def sync(
         )
     if not dry_run and config.get("document_task_sections", {}).get("enabled"):
         from reconcile_sections import reconcile
-        report["task_sections"] = reconcile(config, tasks, cli)
+        doc_urls = {}
+        for guid, task in tasks.items():
+            url = resolve_doc_url(
+                task,
+                seed=seed_by_guid.get(guid),
+                task_docs=task_docs,
+                allowed_hosts=allowed_hosts,
+            ) or extract_doc_url(rows.get(guid, {}).get("飞书文档"), allowed_hosts)
+            if url:
+                doc_urls[guid] = url
+        report["task_sections"] = reconcile(config, tasks, cli, doc_urls=doc_urls)
     return report
 
 

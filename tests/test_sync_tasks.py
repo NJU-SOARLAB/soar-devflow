@@ -130,6 +130,24 @@ class SyncTasksTests(unittest.TestCase):
         self.assertEqual(a, b)
         self.assertNotEqual(a, c)
 
+    def test_nested_task_documents_schema_and_document_url_key_supported(self):
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg_path = Path(tmp) / "registry.json"
+            cfg_path.write_text("{}", encoding="utf-8")
+            (Path(tmp) / "task_documents.json").write_text(
+                json.dumps({
+                    "version": 1,
+                    "tasks": {
+                        "one": {"task_id": "SR-99", "document_url": "https://example.feishu.cn/wiki/nestedDoc"}
+                    },
+                }),
+                encoding="utf-8",
+            )
+            docs = sync.load_task_documents(cfg_path)
+            self.assertEqual(sync.resolve_doc_url(self.task(), task_docs=docs), "https://example.feishu.cn/wiki/nestedDoc")
+
 
 if __name__ == "__main__":
     unittest.main()
